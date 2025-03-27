@@ -1,9 +1,10 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerController : MonoBehaviour
 {
     // The amount of frames the player character will be moving after pressing one of the movement keys
-    //
+    
     // Using a number where 100 % i has 3 or fewer decimal places is recommended
     // Not doing so will cause the character to start going off center from the grid
     [SerializeField] int maxMoveFrames = 16;
@@ -11,7 +12,9 @@ public class PlayerController : MonoBehaviour
     Rigidbody2D rb;
     Animator animator;
 
-    float moveFrames;
+    InputAction movementAction;
+
+    float moveFrames = 0;
     bool moving = false;
     Vector2 movement;
 
@@ -20,13 +23,13 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
 
-        moveFrames = maxMoveFrames;
+        movementAction = InputSystem.actions.FindAction("Movement");
     }
 
     private void FixedUpdate()
     {
         // If there are movement frames left, move the character
-        if (moveFrames <= maxMoveFrames)
+        if (moving && moveFrames < maxMoveFrames)
         {
             Move();
         }
@@ -35,15 +38,13 @@ public class PlayerController : MonoBehaviour
         if (moving) return;
 
         // Reads the input from WASD and the arrow keys
-        float movementX = Input.GetAxis("Horizontal");
-        float movementY = Input.GetAxis("Vertical");
+        Vector2 movementInput = movementAction.ReadValue<Vector2>();
 
         // If there was no input, don't do anything
-        if (movementX != 0 || movementY != 0)
-        {
-            // If there was an input, use that to determine where to move the player
-            HandleMoveInput(new Vector2(movementX, movementY));
-        }
+        if (movementInput == Vector2.zero) return;
+        
+        // If there was an input, use that to determine where to move the player
+        HandleMoveInput(movementInput);
     }
 
     // Function to move the player character
@@ -51,25 +52,23 @@ public class PlayerController : MonoBehaviour
     {
         rb.MovePosition(rb.position + movement);
 
+        moveFrames++;
+
         // Set moving to false on the last movement frame
         if (moveFrames == maxMoveFrames)
         {
             moving = false;
             animator.SetBool("Walking", false);
-        }
 
-        moveFrames++;
+            // Reset moveframes for next movement
+            moveFrames = 0;
+        }
     }
 
     // Function that translates input to player movement
     private void HandleMoveInput(Vector2 input)
     {
-        // If the input for either axis is less than 0, set the value to -1 and vice versa
-        movement = new Vector2
-        (
-            Mathf.Clamp(input.x, -0.01f, 0.01f) * 100,
-            Mathf.Clamp(input.y, -0.01f, 0.01f) * 100
-        );
+        movement = input;
 
         // If both axes had an input, give priority to the horizontal axis
         if (movement.x != 0) movement.y = 0;
@@ -82,7 +81,6 @@ public class PlayerController : MonoBehaviour
 
         // Set moving to true so the player can't move diagonally
         moving = true;
-        moveFrames = 1;
-        animator.SetBool("Walking", true);        
+        animator.SetBool("Walking", true);
     }
 }
